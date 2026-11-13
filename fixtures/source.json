@@ -1,0 +1,48 @@
+{
+  "kind": "recipe-preflight",
+  "data": {
+    "revision": 1,
+    "adapters": {
+      "fetch": {
+        "output": "page",
+        "replayable": true,
+        "effect": "read"
+      },
+      "submit": {
+        "output": "receipt",
+        "replayable": false,
+        "effect": "write"
+      }
+    },
+    "recipes": [
+      {
+        "id": "simple",
+        "steps": [
+          {
+            "id": "read",
+            "adapter": "fetch",
+            "input": "seed"
+          }
+        ]
+      },
+      {
+        "id": "missing-branch",
+        "steps": [
+          {
+            "id": "branch",
+            "condition": "hasMore",
+            "then": {
+              "produces": "token"
+            },
+            "otherwise": {}
+          },
+          {
+            "id": "next",
+            "requires": "token",
+            "adapter": "fetch"
+          }
+        ]
+      }
+    ]
+  }
+}
