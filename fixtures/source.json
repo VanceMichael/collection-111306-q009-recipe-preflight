@@ -6,17 +6,28 @@
       "fetch": {
         "output": "page",
         "replayable": true,
+        "pausable": true,
+        "effect": "read"
+      },
+      "lookup": {
+        "output": "record",
+        "replayable": false,
+        "pausable": true,
         "effect": "read"
       },
       "submit": {
         "output": "receipt",
         "replayable": false,
+        "pausable": false,
         "effect": "write"
       }
     },
     "recipes": [
       {
         "id": "simple",
+        "inputs": {
+          "seed": { "source": "human", "description": "起始页令牌" }
+        },
         "steps": [
           {
             "id": "read",
@@ -27,19 +38,129 @@
       },
       {
         "id": "missing-branch",
+        "inputs": {
+          "hasMore": { "source": "human", "description": "是否还有下一页" }
+        },
         "steps": [
           {
             "id": "branch",
             "condition": "hasMore",
-            "then": {
-              "produces": "token"
-            },
-            "otherwise": {}
+            "then": [
+              { "id": "make-token", "produces": { "token": "page-token" } }
+            ],
+            "otherwise": []
           },
           {
             "id": "next",
             "requires": "token",
-            "adapter": "fetch"
+            "adapter": "fetch",
+            "produces": { "page": "page" }
+          }
+        ]
+      },
+      {
+        "id": "parallel-mismatch",
+        "inputs": {
+          "seed": { "source": "human", "description": "起始页令牌" }
+        },
+        "steps": [
+          {
+            "id": "fork",
+            "parallel": [
+              [
+                { "id": "left", "adapter": "fetch", "input": "seed", "produces": { "result": "page" } }
+              ],
+              [
+                { "id": "right", "adapter": "lookup", "input": "seed", "produces": { "result": "record" } }
+              ]
+            ]
+          },
+          {
+            "id": "use",
+            "adapter": "fetch",
+            "requires": ["result"],
+            "produces": { "done": "page" }
+          }
+        ]
+      },
+      {
+        "id": "unbounded-repeat",
+        "inputs": {
+          "seed": { "source": "human", "description": "起始页令牌" }
+        },
+        "steps": [
+          {
+            "id": "first",
+            "adapter": "fetch",
+            "input": "seed",
+            "produces": { "token": "page-token" }
+          },
+          {
+            "id": "more",
+            "repeat": { "while": "token" },
+            "body": [
+              {
+                "id": "next",
+                "adapter": "fetch",
+                "input": "token",
+                "requires": ["token"],
+                "produces": { "token": "page-token" }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "paged-collect",
+        "inputs": {
+          "seed": { "source": "human", "description": "起始页令牌" },
+          "label": { "source": "human", "optional": true, "description": "可选批次标注" }
+        },
+        "steps": [
+          {
+            "id": "first",
+            "adapter": "fetch",
+            "input": "seed",
+            "produces": { "page": "page", "token": "page-token" },
+            "pauseAfter": true
+          },
+          {
+            "id": "more",
+            "repeat": { "while": "token", "max": 4 },
+            "body": [
+              {
+                "id": "next",
+                "adapter": "fetch",
+                "input": "token",
+                "requires": ["token"],
+                "produces": { "page": "page", "token": "page-token" }
+              }
+            ]
+          },
+          {
+            "id": "annotate",
+            "condition": { "has": "label" },
+            "then": [
+              { "id": "mark", "adapter": "lookup", "input": "label", "produces": { "tag": "record" } }
+            ],
+            "otherwise": []
+          },
+          {
+            "id": "enrich",
+            "parallel": [
+              [
+                { "id": "stats", "adapter": "lookup", "input": "page", "produces": { "stats": "record" } }
+              ],
+              [
+                { "id": "trail", "adapter": "lookup", "input": "page", "produces": { "trail": "record" } }
+              ]
+            ]
+          },
+          {
+            "id": "ship",
+            "adapter": "submit",
+            "requires": ["page"],
+            "produces": { "receipt": "receipt" }
           }
         ]
       }

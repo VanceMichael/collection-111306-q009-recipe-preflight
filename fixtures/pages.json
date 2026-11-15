@@ -1,0 +1,7 @@
+{
+  "pages": {
+    "seed-1": { "page": "page-1", "next": "tok-2" },
+    "tok-2": { "page": "page-2", "next": "tok-3" },
+    "tok-3": { "page": "page-3", "next": null }
+  }
+}

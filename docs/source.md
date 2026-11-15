@@ -1,6 +1,6 @@
 # 本地资料源约定
 
-fixtures/source.json 定义配方及适配器能力。基础 singleStep 仅支持单步预览，没有路径预检。/api/action edit 改变配方配置版本。待开发预检入口不由本地源替代；正式领取与试运行不得共享 seed/token 状态。
+fixtures/source.json 定义配方及适配器能力。基础 singleStep 仅支持单步预览；预检、试运行与正式领取由 `src/preflight.mjs`、`src/dryrun.mjs`、`src/execute.mjs` 在接收侧独立完成，不由本地源替代。/api/action edit 改变配方配置版本（revision 2 中 paged-collect 的翻页上界变为 9），用于演示结论失效。正式领取与试运行不共享 seed/token 状态：试运行令牌带 dry 标记，正式执行拒收。
 
 ## 通用控制
 

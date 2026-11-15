@@ -4,7 +4,9 @@
 
 ## 当前能力
 
-`npm run demo` 从实际本地资料源获取一次预览，将结果写入 `var/captures.json`，并打印接收文件和本次可见内容。它还不是业务批量接收器：当前只提供单次观察，尚未承诺以下业务边界。`src/domain.mjs` 保留已有领域预览函数；`src/store.mjs` 提供带完整性校验的单进程顺序接收文件，不是跨进程事务数据库。
+`npm run demo` 从本地资料源读取配方与适配器能力，逐条配方做预检（每条可达路径的输入来源与能力核对，附改法），对通过预检的 `paged-collect` 依次做试运行和正式领取，并演示两条边界：试运行令牌不得带进正式执行、配方变更后旧结论失效。结果写入 `var/captures.json`。
+
+预检、试运行、正式领取是执行器之前的独立环节，见 `docs/preflight.md`。`src/domain.mjs` 保留已有领域预览函数；`src/store.mjs` 提供带完整性校验的单进程顺序接收文件，不是跨进程事务数据库。
 
 ## 运行
 
@@ -31,23 +33,30 @@ docker run --rm --network none --ipc=host plant-recipe-preflight npm run demo
 
 - `src/source.mjs`：该业务的本地资料源与演示控制，独立于待扩展的接收行为。
 - `src/domain.mjs`：现有原始资料预览和领域数据结构。
-- `src/preview.mjs`：读取、预览及持久化的一次运行入口。
-- `fixtures/source.json` 与 `fixtures/controls.json`：本地供方资料及可切换情形。
-- `docs/source.md`：接口和来源约定。
-- `test`：现有预览、源端特殊情形、接收文件完整性测试。
+- `src/recipe.mjs`：配方规范化（分支/并行/有界重复/可选值/人工输入）与结论指纹。
+- `src/preflight.mjs`：预检——逐可达路径核对输入来源与适配器能力，结论带步骤位置与改法。
+- `src/runtime.mjs`：试运行与正式领取共用的步骤解释器，运行时强制重复上界。
+- `src/localdata.mjs`：本地资料源实现；试运行令牌带 dry 标记，正式模式拒收。
+- `src/dryrun.mjs`：试运行——只读本地资料源，写能力步骤一律跳过。
+- `src/execute.mjs`：正式领取——核对结论新鲜度、拒绝试运行令牌、留痕到接收文件。
+- `src/preview.mjs`：演示入口，串联预检、试运行、正式领取与失效核对。
+- `fixtures/source.json` 与 `fixtures/controls.json`：本地供方资料（含实例配方）及可切换情形。
+- `fixtures/pages.json`：本地翻页资料，试运行与正式领取共用的本地资料源。
+- `docs/source.md`：接口和来源约定；`docs/preflight.md`：配方格式、检查码与改法、失效依据。
+- `test`：预览、源端边界、接收文件完整性、预检、试运行、正式领取测试。
 
 ## 业务核对
 
-后续接收行为应使以下情况可被独立观察，而不仅是源端能够制造这些情况：
+以下情况均可独立观察，由对应测试与演示入口验证：
 
-- 只有一条分支产生必需值。
-- 并行结果类型不兼容。
-- 重复步骤有明确上界。
-- 试运行拒绝外部写入能力。
-- 配置改变后旧结论失效。
+- 只有一条分支产生必需值：`missing-branch` 预检报 `maybe-value`，缺失路径标 ✗（`test/preflight.test.mjs`）。
+- 并行结果类型不兼容：`parallel-mismatch` 预检报 `parallel-type-mismatch`（同上）。
+- 重复步骤有明确上界：`unbounded-repeat` 预检报 `unbounded-repeat`；运行时达到上界条件仍成立会中止（`test/preflight.test.mjs`、`test/dryrun.test.mjs`）。
+- 试运行拒绝外部写入能力：写能力步骤一律跳过且适配器不被调用，产物为 `withheld:` 占位（`test/dryrun.test.mjs`）。
+- 配置改变后旧结论失效：指纹由配方内容、适配器能力、分析器版本三部分决定，任一部分变化即拒绝并说明是哪部分（`test/execute.test.mjs`，演示入口现场展示）。
 
-测试只验证现有工具与源端行为，不代表新增业务能力已经交付。新增行为可在独立模块扩展，保留原有预览调用；禁止把源端模拟器改成替接收器完成核对。
+新增行为在独立模块扩展，保留原有预览调用；源端模拟器只制造情形，不替接收器完成核对。
 
 ## 短时操作演示
 
-从空 `var` 运行 `npm run demo`，展示本次真实读取和接收路径；再运行 `npm test` 查看本地源边界与接收文件检查。固定环境中的这两步应在 90 秒内完成。业务功能扩展后同步更新该入口，使其展示实际完成情况、未确认部分及原因，不回放旧日志，不以源端控制操作代替接收结果。
+从空 `var` 运行 `npm run demo`，依次展示：逐条配方预检（含分支遗漏、并行汇合、有界重复三个实例的检查解释）、`paged-collect` 的试运行与正式领取、试运行令牌被正式执行拒绝、配方变更后旧结论失效与重新预检。再运行 `npm test` 查看各环节边界。固定环境中的这两步应在 90 秒内完成。

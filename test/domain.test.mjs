@@ -8,4 +8,4 @@ const data=JSON.parse(await readFile(new URL('../fixtures/source.json',import.me
 const {adapterSummary,singleStep,preview}=domain;
 test('资料对象的领域边界和原始预览',async()=>{assert.equal(singleStep(data.recipes[0],data.adapters,'x').output,'page');
 assert.throws(()=>singleStep(data.recipes[1],data.adapters,'x'));
-assert.equal(preview(data).length,2);});
+assert.equal(preview(data).length,3);});
